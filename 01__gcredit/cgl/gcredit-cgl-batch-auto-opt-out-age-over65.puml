@@ -1,0 +1,83 @@
+@startuml CGL
+skinparam sequenceMessageAlign center
+skinparam DefaultFontName Segoe UI Semibold
+
+participant DaaS as ext_svc
+database credit_services_db as db
+participant "cgl-batch-app" as app
+participant "credit-cgl-auto-optout-over65-api" as api
+participant Mambu
+participant "credit-cgl-api" as api2
+
+title GCredit CGL Batch Opt Out (Age Over 65) Sequence Flow
+
+autonumber 1
+
+ext_svc->db: Dump data into \ncgl_optout table
+activate ext_svc
+note left: Expected data resultset \
+\nshould contain:\
+\n-Mobile Number?\
+\n-Public UserID?\
+\n-Birth Date?\
+\n-Age? (computed)
+
+autonumber 2.0
+activate app
+
+db<--app: Query data
+
+
+app->app: Process data
+note right: prepare query result data 
+
+deactivate ext_svc
+
+
+app->api: Call /cgl-batch/auto-opt-out/
+'note right: Pass
+
+autonumber 3.0
+activate api
+'app<--api: response "processing"
+deactivate app
+
+
+api->Mambu: Call /api/loans:search/ 
+note right: Filter Criteria:\nisCGLOptIn=true, \
+\nLoanStatus="<TBD>"
+activate Mambu
+'deactivate api
+
+
+api<--Mambu: Return Results
+'activate api
+deactivate Mambu
+
+
+api->api: Process Result - Retrieve LoanID
+'activate api
+activate api2
+loop #LightCyan Update each Loan Account (from previous step) 
+    api->api2: Call /gcredit-cgl-api
+    note right: Set CGL subscription value to "No"
+    'activate api2
+    alt #LightBlue API Call Success
+        api<--api2: Return Success
+    else #LightGrey API Call Retry 3X
+        api->api2: Call /gcredit-cgl-api 
+        note right: if retry count < 4
+        'alt  #LightGrey gcredit-cgl-api Response error \n\t(retry 3x) 
+    else #LightCoral API Exception    
+        api<--api2: Return Exception
+    end
+end
+deactivate api2
+
+app<--api: Return Response
+activate app
+app->app: batch job complete
+deactivate api
+deactivate app
+
+@enduml

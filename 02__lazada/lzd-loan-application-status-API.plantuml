@@ -1,0 +1,104 @@
+@startuml lzd-loan
+skinparam sequenceMessageAlign center
+skinparam DefaultFontName Segoe UI Semibold
+
+participant "(Lazada)\nExternal\nmobile-app" as EXT_FE_APP
+boundary "GCash\nAPI-GW" as APPGW
+participant "lazada-loan\napplication-xapi" as BE_XAPI
+participant "lazada-loan\napplication-api" as BE_API
+database "lazada-loan\napplication-db" as LOAN_APP_DB
+'participant "Mambu"
+'database credit_services_db
+  
+title **\nLazada Loan Application Status - Sequence Flow\n**
+
+'activate EXT_FE_APP
+autonumber 1.0
+activate EXT_FE_APP
+'EXT_FE_APP ->EXT_FE_APP: 
+'note left: 
+
+'activate APPGW
+EXT_FE_APP->APPGW: Check Application Status\n(External API Call)
+
+activate APPGW
+APPGW->APPGW: Perform API Security Checks
+alt #LightCyan API access granted
+    APPGW->BE_XAPI: Pass Thru Request
+    activate BE_XAPI
+else #LightCoral API Access Failed
+    EXT_FE_APP<--APPGW: Return Response - API Access Failed
+end
+deactivate EXT_FE_APP
+deactivate APPGW
+
+
+BE_XAPI->BE_API: Call POST (/api/lzd-loan/application/status)
+activate BE_API
+
+BE_API->LOAN_APP_DB: Perform Loan Application DB query
+
+BE_API<--LOAN_APP_DB: Return Application Status Query Result
+
+alt #LightCyan DB Query Sucessful
+    'BE_API->LOAN_APP_DB: CREATE/INSERT Loan Application\nInformation to DB\n
+    BE_API->BE_API: Process Results 
+    note right: Perform server-side logic
+    BE_XAPI<--BE_API: Return Application Status Object[]
+    'APPGW<--BE_API:Return Application \nStatus="Pending"
+    /'
+    opt #AliceBlue KYC Image Data not yet submitted
+        APPGW<--BE_API:Return Application \nStatus="Pending",\nStatus Reason="Pending-KYC"
+    end
+    opt #AliceBlue Eligibility Check not yet done
+        APPGW<--BE_API:Return Application \nStatus="Pending",\nStatus Reason="Pending-Elibility Check"
+    end
+    '/
+else #LightCoral DB Query Exception
+    BE_XAPI<--BE_API: Return Message Exception
+end
+deactivate BE_API
+
+APPGW<--BE_XAPI: Pass-thru Response
+activate APPGW
+deactivate BE_XAPI
+
+EXT_FE_APP<--APPGW: API Response
+deactivate APPGW
+
+activate EXT_FE_APP
+'activate EXT_FE_APP
+group #LightGoldenRodYellow Notification
+    alt #LightBlue Status.State = Approved
+        EXT_FE_APP-->EXT_FE_APP:Display "Loan Approved"
+    else #LightCyan Status.Status = Pending 
+        group #LightGrey Pending Reason
+            alt Status.Reason=Pending-KYC
+                EXT_FE_APP-->EXT_FE_APP:Display "Pending - KYC"
+            else Status.Reason=Pending-Eligibility-Check
+                EXT_FE_APP-->EXT_FE_APP:Display "Pending - Eligibility Check"
+            end
+        end
+    else #LightCoral Status.State = "Rejected"
+        group #LightGrey Reject Reason
+            alt Status.Reason=Expired-KYC
+                EXT_FE_APP-->EXT_FE_APP:Display "Rejected - Expired KYC"
+            else Status.Reason=Expired-Eligibility-Check
+                EXT_FE_APP-->EXT_FE_APP:Display "Rejected - Expired \nEligibility Check"
+            else Status.Reason=Expired-Eligibility-Check AND Expired-KYC
+                EXT_FE_APP-->EXT_FE_APP:Display "Rejected - Expired \nEligibility Check and KYC"
+            else Status.Reason=Not-Eligible
+                EXT_FE_APP-->EXT_FE_APP:Display "Rejected - Not Eligible"
+            else Status.Reason=Already-Existing
+                EXT_FE_APP-->EXT_FE_APP:Display "Rejected - Application already existing"
+            else Status.Reason=Application-Not-Allowed
+                EXT_FE_APP-->EXT_FE_APP:Display "Rejected - Application Not Allowed"
+            
+            end
+        end
+    end
+end
+EXT_FE_APP-->EXT_FE_APP: 
+deactivate EXT_FE_APP
+
+@enduml

@@ -1,0 +1,55 @@
+@startuml CGL
+
+participant app
+participant "credit-cgl-xapi"
+participant "credit-cgl-api"
+database credit_services_db
+participant Mambu
+
+title GCredit CGL Opt In/Out Sequence Flow
+app -> "credit-cgl-xapi": call /cgl
+
+"credit-cgl-xapi" -> "credit-cgl-api": call /cgl
+
+activate "credit-cgl-api"
+"credit-cgl-api" -> "credit-cgl-api": validate request
+
+alt if invalid request
+"credit-cgl-xapi" <-- "credit-cgl-api": 400 Bad Request
+app <-- "credit-cgl-xapi": 400 Bad Request
+end
+
+alt For existing GCredit User
+
+"credit-cgl-api" -> "credit-cgl-api": Get LoanAccountID
+"credit-cgl-api" -> Mambu: Call /getCreditArrangement (creditArrangmentID={ID}, detailsLevel=FULL)
+"credit-cgl-api" <-- Mambu: Response
+
+alt Mambu Response error (retry 3x)
+"credit-cgl-api" <-- Mambu: Response
+end
+
+end
+
+"credit-cgl-api" -> credit_services_db: query global cgl percentage from property table
+"credit-cgl-api" <-- credit_services_db: query result
+"credit-cgl-api" -> credit_services_db: insert opt in request to cgl_subscription
+"credit-cgl-api" <-- credit_services_db: result
+"credit-cgl-api" -> Mambu: PATCH update Loan Account Custom Field
+"credit-cgl-api" <-- Mambu: response
+
+alt mambu error (retry 3x)
+"credit-cgl-api" -> Mambu: POST update Loan Account Custom Field
+"credit-cgl-api" <-- Mambu: response
+end
+"credit-cgl-api" -> credit_services_db: update opt in request status in cgl_subscription
+"credit-cgl-api" <-- credit_services_db: result
+"credit-cgl-xapi" <-- "credit-cgl-api": 200 Success Response
+app <-- "credit-cgl-xapi": 200 Success Response
+alt processing error (catch-all)
+"credit-cgl-xapi" <-- "credit-cgl-api": 422 Generic Error Response
+app <-- "credit-cgl-xapi": 422 Generic Response
+end
+deactivate "credit-cgl-api"
+
+@enduml

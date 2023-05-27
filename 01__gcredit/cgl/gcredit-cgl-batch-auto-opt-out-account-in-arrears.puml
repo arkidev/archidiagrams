@@ -1,0 +1,70 @@
+@startuml CGL
+skinparam sequenceMessageAlign center
+skinparam DefaultFontName Segoe UI Semibold
+
+
+participant "cgl-batch-app" as app
+'participant "credit-cgl-xapi"
+participant "credit-cgl-batch-api" as api
+participant Mambu
+participant "credit-cgl-api" as api2
+'database credit_services_db
+
+
+title GCredit CGL Batch Opt Out (In-Arrears) Sequence Flow\n
+
+autonumber 1.0
+activate app
+
+app->app: initialize ()
+app->api: Call /cgl-batch/auto-opt-out/
+activate api
+app<--api: response "processing"
+deactivate app
+
+autonumber 1.0
+api->Mambu: Call /api/loans:search/
+note right: Filter Criteria: "isCGLOptIn=true, LoanStatus=closed"
+activate Mambu
+
+api<--Mambu: Return Results
+deactivate Mambu
+'deactivate api
+
+api->api: Process Result - Retrieve LoanID
+activate api2
+note top: Iterate through each Loan Account
+loop #LightGrey Update each Loan Account (from step 2.2) 
+    api->api2: Call /gcredit-cgl-api
+    note right: Set CGL subscription value to "No" 
+    'activate api2
+    
+    alt #LightGreen API Call Success
+        api<--api2: Return Success
+    else  #LightGoldenRodYellow API call Retry
+        api->api: Set Retry Count = 0
+        loop #LightGrey Max Retry = 3
+            
+            api->api2: Call /gcredit-cgl-api
+            api->api: Increment Retry Count (+1)
+            alt #LightGreen Retry API Call  Success
+                api<--api2: Return Success
+                api->api: Exit Retry Loop
+            else #LightGoldenRodYellow Retry API Call Unsuccessful
+                api->api: Continue Retry Loop
+            else #LightCoral Retry API Call Unsuccessful AND Max Retry > 3
+                api->api: Exit Retry Loop
+            end
+        end 
+    else #Red API Call Failed
+        api<--api2: Return Failed
+    end
+end
+deactivate api2
+app<--api: processing done ...
+activate app
+deactivate api
+app->app: batch job complete
+deactivate app
+
+@enduml

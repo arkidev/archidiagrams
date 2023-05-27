@@ -1,0 +1,63 @@
+@startuml lzd-loan
+skinparam sequenceMessageAlign center
+
+participant "Lazada\nmobile-app" as EXT_FE_APP
+boundary "GCash\nAPI-GW" as APPGW
+participant "lazada-loan\napplication-xapi" as BE_XAPI
+participant "lazada-loan\napplication-api" as BE_API
+database "lazada-loan\napplication-db" as LOAN_APP_DB
+'participant "Mambu"
+'database credit_services_db
+  
+title \nLazada Loan Application Upload Image - Sequence Flow\n
+
+'activate EXT_FE_APP
+autonumber 1.0
+activate EXT_FE_APP
+EXT_FE_APP ->EXT_FE_APP: Client-Side \nValidation
+'note left: check parameter input 
+
+EXT_FE_APP->APPGW: External API Call
+
+activate APPGW
+APPGW->APPGW: Perform API Security Checks
+alt #LightCyan API access granted
+    APPGW->BE_XAPI: Pass Thru Request
+    activate BE_XAPI
+else #LightCoral API Access Failed
+    EXT_FE_APP<--APPGW: Return Response - API Access Failed
+end
+deactivate EXT_FE_APP
+deactivate APPGW
+
+BE_XAPI->BE_API: Call POST /api/lzd-loan/kyc-images/
+'note right: POST params are indicated in the API docs
+activate BE_API
+'deactivate BE_XAPI
+BE_API->LOAN_APP_DB: Perform DB Query\nLoan Application Search
+BE_API<--LOAN_APP_DB: Return Query Result
+'deactivate APPGW
+
+alt #LightCyan Loan-Application-ID Found
+    BE_API->LOAN_APP_DB: INSERT image into Loan_Application_image_info DB Table 
+    BE_XAPI<--BE_API:Return KYC Image ID (kycid)
+    
+    'APPGW<--BE_API:Return KYC Image ID (kycid)
+    
+else #LightCoral Loan-Application-ID NOT Found
+   ' BE_API->BE_API: Perform Server-Side\nValidation\n
+    BE_XAPI<--BE_API:Return NULL
+    'APPGW<--BE_API:Return NULL
+end
+
+deactivate BE_API
+APPGW<--BE_XAPI: Pass-thru Response
+activate APPGW
+deactivate BE_XAPI
+EXT_FE_APP<--APPGW: API Response
+activate EXT_FE_APP
+deactivate APPGW
+EXT_FE_APP-->EXT_FE_APP: Display Response Notification
+deactivate EXT_FE_APP
+
+@enduml

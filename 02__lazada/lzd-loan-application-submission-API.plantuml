@@ -1,0 +1,70 @@
+@startuml lzd-loan
+skinparam sequenceMessageAlign center
+
+participant "Lazada\nmobile-app" as EXT_FE_APP
+boundary "GCash\nAPI-GW" as APPGW
+participant "lazada-loan\napplication-xapi" as BE_XAPI
+participant "lazada-loan\napplication-api" as BE_API
+database "lazada-loan\napplication-db" as LOAN_APP_DB
+'participant "Mambu"
+'database credit_services_db
+  
+title \nLazada Loan Application Submission - Sequence Flow\n
+
+'activate EXT_FE_APP
+autonumber 1.0
+activate EXT_FE_APP
+EXT_FE_APP ->EXT_FE_APP: Perform \nClient-side validation
+'note left: UI Validation based \non business rules
+
+'activate APPGW
+EXT_FE_APP->APPGW: Submit Application via \nExternal API Call
+
+activate APPGW
+APPGW->APPGW: Perform API Security Checks
+alt #LightCyan API access granted
+    APPGW->BE_XAPI: Pass Thru Request
+    activate BE_XAPI
+else #LightCoral API Access Failed
+    EXT_FE_APP<--APPGW: Return Response - API Access Failed
+end
+deactivate EXT_FE_APP
+deactivate APPGW
+
+'activate APPGW
+
+BE_XAPI->BE_API: Call POST /api/lzd-loan/application
+activate BE_API
+
+'BE_API->BE_API: Verify if "New Loan Application"
+'note left: Check if Application_ID exists
+
+'alt #LightGreen New Loan Application
+BE_API->BE_API: Perform Server-Side Validation
+
+alt #LightCyan successful validation
+    BE_API->LOAN_APP_DB: CREATE/INSERT Loan Application\nInformation into DB\n
+    
+    alt #LightCyan DB Success
+        BE_API<--LOAN_APP_DB: Return 1
+        BE_XAPI<--BE_API:Return Loan Application Submitted"
+    else #LightCoral DB failure
+        BE_API<--LOAN_APP_DB: Return 0
+        BE_XAPI<--BE_API:Return Loan Application Not Submitted"
+    end
+else #LightCoral validation failure 
+    BE_XAPI<--BE_API:Return Loan Application Incomplete
+end
+deactivate BE_API
+APPGW<--BE_XAPI: Pass-thru Response
+activate APPGW
+deactivate BE_XAPI
+
+EXT_FE_APP<--APPGW: API Response
+activate EXT_FE_APP
+deactivate APPGW
+'activate EXT_FE_APP
+EXT_FE_APP-->EXT_FE_APP: Display Response Notification
+deactivate EXT_FE_APP
+
+@enduml

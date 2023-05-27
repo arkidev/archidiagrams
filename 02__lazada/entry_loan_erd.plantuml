@@ -1,0 +1,95 @@
+@startuml
+
+!theme plain
+left to right direction
+skinparam linetype ortho
+
+class borrower_financial_info {
+   source_of_fund: varchar(100)
+   nature_of_work: varchar(255)
+   character_reference_id: int
+   character_reference_relationship: varchar(100)
+   character_reference_mobile_number: varchar(11)
+   financial_info_id: int
+}
+class borrower_loan_application {
+   borrower_profile_id: varchar(255)
+   borrower_financial_info_id: int
+   product_id: int
+   application_source: varchar(100)
+   partner_identifier: varchar(255)
+   application_id: int
+}
+class borrower_profile {
+   contact_id: int
+   party_id: int
+   merchant_id: varchar(50)
+   borrower_type: varchar(25)
+   borrower_profile_id: varchar(255)
+}
+class party {
+   legal_name: varchar(255)
+   first_name: varchar(60)
+   last_name: varchar(60)
+   middle_name: varchar(60)
+   name_suffix: varchar(4)
+   gender: varchar(10)
+   birth_date: date
+   civil_status: varchar(10)
+   nationality: varchar(20)
+   created_by: varchar(50)
+   updated_by: varchar(50)
+   date_created: varchar(50)
+   date_updated: varchar(50)
+   role_id: int
+   legal_primary_id: varchar(30)
+   legal_id_type: varchar(255)
+   legal_secondary_id: int
+   legal_primary_id_expiration_date: date
+   legal_secondary_id_expiration_date: date
+   ID: int
+}
+class party_contact {
+   primary_mobile_phone: varchar(11)
+   alternate_mobile_phone: varchar(11)
+   address_line1: varchar(255)
+   address_line2: varchar(255)
+   street: varchar(255)
+   barangay: varchar(255)
+   city_or_municipality: varchar(255)
+   province: varchar(255)
+   region: varchar(255)
+   landline_phone: varchar(11)
+   primary_email: varchar(255)
+   personal_email: varchar(255)
+   business_email: varchar(255)
+   professional_email: varchar(255)
+   contact_id: int
+}
+class party_role {
+   description: varchar(255)
+   created_by: varchar(50)
+   updated_by: varchar(50)
+   date_created: varchar(50)
+   date_updated: varchar(50)
+   name: varchar(255)
+   ID: int
+}
+class product {
+   parent_product_id: int
+   name: varchar(50)
+   description: varchar(100)
+   is_enabled: tinyint
+   gmt_create: datetime
+   gmt_modify: datetime
+   product_id: int
+}
+
+borrower_financial_info    -[#595959,plain]-^  party                     : "character\nreference_id\"
+borrower_loan_application  -[#595959,plain]-^  borrower_financial_info   : "financial\ninfo_id\"
+borrower_loan_application  -[#595959,plain]-^  borrower_profile          : "borrower_profile_id"
+borrower_loan_application  -[#595959,plain]-^  product                   : "product_id"
+borrower_profile           -[#595959,plain]-^  party                     : "party_id:ID"
+borrower_profile           -[#595959,plain]-^  party_contact             : "contact_id"
+party                      -[#595959,plain]-^  party_role                : "role_id:ID"
+@enduml
